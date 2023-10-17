@@ -21,7 +21,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -819,8 +821,29 @@ func unsafeStringToSlice(s string) (b []byte) {
 	return b
 }
 
-// mallocMax is 8MB
-const mallocMax = block8k * block1k
+// mallocMax is default to 8MB
+var mallocMax = block8k * block1k
+
+func init() {
+	if v, ok := loadMallocMaxFromEnv(); ok {
+		mallocMax = v
+	}
+}
+
+func loadMallocMaxFromEnv() (int, bool) {
+	env, ok := os.LookupEnv("NETPOLL_LINK_BUFFER_MALLOC_MAX")
+	if !ok {
+		return 0, false
+	}
+
+	i, err := strconv.ParseInt(env, 10, 64)
+	if err != nil {
+		// invalid
+		return 0, false
+	}
+
+	return int(i), true
+}
 
 // malloc limits the cap of the buffer from mcache.
 func malloc(size, capacity int) []byte {
